@@ -1,0 +1,50 @@
+<script>
+const pageJsFileMixin = {
+  data: function () {
+    return {
+      pageName: 'teamoneSidebar',
+      tabs: [
+        { key: 'functions', icon: 'mdi-google-spreadsheet', text: 'Content' },
+        { key: 'tasks', icon: 'mdi-clipboard-list-outline', text: 'Tasks' },
+        { key: 'model', icon: 'mdi-cube-outline', text: 'Model' },
+        { key: 'users', icon: 'mdi-account-group-outline', text: 'Users', adminOnly: true },
+        { key: 'log', icon: 'mdi-calendar-text-outline', text: 'Message log', adminOnly: true },
+        { key: 'processes', icon: 'mdi-calculator-variant-outline', text: 'Processes', adminOnly: true },
+      ],
+      functionList: [
+        { name: 'Drill through', hint: 'Drill through to detailed data', link: 'functions#drill-through', icon: 'mdi-table-eye' },
+        { name: 'Increase indent', hint: 'Increase indentation for the selected cells', link: 'functions#increase-indent', icon: 'mdi-format-indent-increase' },
+        { name: 'Decrease indent', hint: 'Decrease indentation for the selected cells', link: 'functions#decrease-indent', icon: 'mdi-format-indent-decrease' },
+      ],
+      sheetList: [],
+    };
+  },
+
+  methods: {
+    tabContentRefresh() {
+      console.clear();
+      this.debugLog('tabContentRefresh()', { tab: this.tab });
+      this.tabLoading = false;
+      this.state.tab[this.pageName] = this.tab;
+      if(this.tab=='functions'){
+        this.sheetListRefresh();
+      }
+      
+    },
+    sheetListRefresh(){
+      this.debugLog('sheetListRefresh()', {});
+      this.sheetList = [];
+      this.tabLoading = true;
+      google.script.run.withFailureHandler(function(error){
+        vm.stop('GS ERROR: ' + error.message);
+      }).withSuccessHandler(function(sheetData){
+        vm.debugLog('gsInfo()', { sheetData: sheetData });
+        vm.sheetList = sheetData.TEAMONESHEETS;
+        vm.tabLoading = false;
+      }).gsInfo(['TEAMONESHEETS','FORMULAS','PROPS']);
+    },
+
+  },
+  
+};
+</script>

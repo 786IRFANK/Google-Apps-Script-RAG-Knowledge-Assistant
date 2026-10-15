@@ -1,0 +1,256 @@
+<script>
+const pause = ms => new Promise(resolve => setTimeout(resolve, ms));
+let vm;
+
+
+document.addEventListener('DOMContentLoaded', async () => {
+  let attempts = 0;
+  while (!window.Vue && attempts < 150) {
+    await pause(200);
+    attempts++;
+  }
+
+  if (!window.Vue) {
+    const appContainer = document.getElementById('app');
+    if (appContainer) {
+      appContainer.innerHTML = `
+        <div style="display:block;color:red;padding:10px;font-size:16px">
+          <b>TeamOne failed to load</b><br><br>
+          Please check if Vue/Vuetify CDN files are accessible, then close and reopen the sidebar.
+        </div>`;
+    }
+    return;
+  }
+
+
+  vm = new Vue({
+    el: '#app',
+    mixins: [pageJsFileMixin],
+    vuetify: new Vuetify({
+      theme: {
+        themes: {
+          light: {
+            primary: '#3F51B5',
+            secondary: '#b0bec5',
+            accent: '#8c9eff',
+            error: '#b71c1c',
+          },
+        },
+      },
+    }),
+    data: () => ({
+      connecting: false,
+      readonly: false,
+      activeUser: {},
+      isAdminUser: true,
+      isDebugMode: true,
+      tabLoading: false,
+      loader: false,
+      executing: '',
+      state: {
+        tab: {},
+        tm1Env: 'Demo IBM PA',
+      },
+      tab: '',
+      snackbarDialog: false,
+      snackbar: { msg: '', timeout: 2000, color: '' },
+      colorMain: 'indigo',
+      colorTabToolbar: '#F5F5F5',
+      logPanel: false,
+      tm1Envs: ['Demo IBM PA', 'Production IBM PA', 'Development IBM PA'],
+      tm1Cfg: {},
+      logMsg: [],
+
+      // Global AI Assistant state. Kept in core.js so every TeamOne module can use it.
+      assistantDialog: false,
+      assistant: {
+        input: '',
+        loading: false,     // true while waiting on the assistant
+        analyzing: false,   // true while waiting on formula analysis
+        sessionId: null,    // fetched once on mount, one per user (not shared)
+        backendUrl: null,   // fetched once on mount, used for direct fetch() calls to the Python backend
+        messages: [
+          {
+            id: 1,
+            role: 'assistant',
+            text: 'Hi, I can help with TeamOne formulas in this prototype. Ask me to create a simple TEAMONE formula example.',
+          },
+        ],
+        preview: null,
+      },
+    }),
+    mounted() {
+      this.tab = this.state.tab[this.pageName] || 'functions';
+      this.log('TeamOne prototype sidebar loaded');
+      this.tabContentRefresh();
+
+      google.script.run
+        .withSuccessHandler(id => {
+          this.assistant.sessionId = id;
+        })
+        .withFailureHandler(error => {
+          this.logError('getOrCreateAssistantSessionId() ERROR: ' + error.message, 1);
+        })
+        .getOrCreateAssistantSessionId();
+
+      google.script.run
+        .withSuccessHandler(url => {
+          this.assistant.backendUrl = url;
+        })
+        .withFailureHandler(error => {
+          this.logError('getBackendUrl() ERROR: ' + error.message, 1);
+        })
+        .getBackendUrl();
+    },
+    methods: {
+      loaderShow(msg) {
+        this.executing = msg || 'Loading...';
+        this.loader = true;
+      },
+      loaderHide(msg) {
+        this.executing = '';
+        this.loader = false;
+        if (msg) this.log(msg, 1);
+      },
+      stop(msg) {
+        this.loaderHide();
+        this.logError(msg || 'TeamOne stopped', 1);
+        throw new Error(msg || 'TeamOne stopped');
+      },
+      log(logMsg, showSnackbar, severity) {
+        const dt = new Date();
+        logMsg = String(logMsg || '')
+          .replace(/<(?!\/?(b|i|u|br)\b)[^>]*>/gi, '')
+          .replace(/<(b|i|u|br)(\s+[^>]*)?>/gi, '<$1>');
+        this.logMsg.push({
+          ts: dt.getHours() + ':' + ('0' + dt.getMinutes()).slice(-2) + ':' + ('0' + dt.getSeconds()).slice(-2),
+          msg: logMsg,
+          class: severity || '',
+        });
+        console.log('[TeamOne prototype]', logMsg);
+        if (showSnackbar) {
+          this.snackbar = { msg: logMsg, color: severity ? 'red darken-2' : '', timeout: severity ? 20000 : 2000 };
+          this.snackbarDialog = true;
+        }
+        return logMsg;
+      },
+      logWarn(logMsg, showSnackbar) { this.log(logMsg, showSnackbar, 'logMsgWarn'); },
+      logError(logMsg, showSnackbar) { this.log(logMsg, showSnackbar, 'logMsgError'); },
+      debugLog(message, data) { if (this.isDebugMode) console.log('[TeamOne debug]', message, data || ''); },
+      cfgRefresh() {
+        this.log('Configuration refresh placeholder', 1);
+      },
+      stateSave() {
+
+      },
+      tm1ConnSource() {
+        this.log(`Selected connection: <b>${this.state.tm1Env}</b>`, 1);
+      },
+      gsExecute(task) {
+        const name = typeof task === 'string' ? task : task.name;
+        this.log(`${name} placeholder`, 1);
+      },
+
+      //AI Assistant 
+
+      renderMarkdown(text) {
+        // marked + DOMPurify are loaded in core.html
+        const raw = marked.parse(text || '');
+        return DOMPurify.sanitize(raw);
+      },
+
+      columnLabelsFromPlan(columns) {
+        if (!columns || !columns.length) return [];
+        const numCols = Math.max(...columns.map(level => level.length));
+        const labels = [];
+        for (let c = 0; c < numCols; c++) {
+          const parts = columns.map(level => level[c]).filter(v => v !== undefined && v !== '');
+          labels.push(parts.join(' > '));
+        }
+        return labels;
+      },
+
+      async assistantSend() {
+        const text = (this.assistant.input || '').trim();
+        if (!text || this.assistant.loading) return;
+
+        this.assistant.messages.push({ id: Date.now(), role: 'user', text });
+        this.assistant.input = '';
+
+
+        if (!this.assistant.backendUrl) {
+          this.assistant.messages.push({
+            id: Date.now(),
+            role: 'assistant',
+            text: 'Assistant is still starting up (backend URL not loaded yet) - try again in a moment.',
+          });
+          return;
+        }
+
+        this.assistant.loading = true;
+        this.assistant.preview = null;
+
+        try {
+          const res = await fetch(this.assistant.backendUrl + '/chat', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              session_id: this.assistant.sessionId || 'teamone-session-fallback',
+              message: text,
+              question: text,
+              sheet_context: null,
+            }),
+          });
+
+          if (!res.ok) {
+            const errText = await res.text();
+            throw new Error(`Backend error (${res.status}): ${errText}`);
+          }
+
+          const result = await res.json();
+          this.assistant.loading = false;
+          this.debugLog('chat response', result);
+          this.assistant.messages.push({
+            id: Date.now(),
+            role: 'assistant',
+            text: result.message,
+            html: this.renderMarkdown(result.message),
+          });
+
+
+        } catch (error) {
+          this.assistant.loading = false;
+          this.assistant.messages.push({
+            id: Date.now(),
+            role: 'assistant',
+            text: 'Something went wrong: ' + error.message,
+          });
+          this.logError('assistantSend() fetch ERROR: ' + error.message, 1);
+        }
+      },
+
+      insertAssistantPreview() {
+        if (!this.assistant.preview) return;
+        const plan = this.assistant.preview;
+        google.script.run
+          .withFailureHandler(error => {
+            this.logError('gsTeamoneFormulaAdd() ERROR: ' + error.message, 1);
+          })
+          .withSuccessHandler(response => {
+            this.log(`Inserted TEAMONE formula into <b>${response.sheet}</b> starting at row ${response.nStartRow}, column ${response.nStartCol}`, 1);
+            this.assistant.preview = null;
+          })
+          .gsTeamoneFormulaAdd(plan.cube, plan.rows, plan.columns, plan.titles, plan.options);
+      },
+
+
+      gsSheetActivate(options) {
+        google.script.run
+          .withFailureHandler(error => this.logError('gsSheetActivate() ERROR: ' + error.message, 1))
+          .withSuccessHandler(() => this.log(`Activated sheet <b>${options.sheet}</b>`, 1))
+          .gsSheetActivate(options);
+      },
+    },
+  });
+});
+</script>

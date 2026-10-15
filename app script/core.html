@@ -1,0 +1,448 @@
+<!DOCTYPE html>
+<html style="overflow:hidden">
+  <head>
+    <base target="_top">
+    <link href="https://fonts.googleapis.com/css?family=Roboto:100,300,400,500,700,900" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/@mdi/font@7.x/css/materialdesignicons.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/vuetify@2.x/dist/vuetify.min.css" rel="stylesheet">
+    <!-- Markdown rendering for assistant answers + sanitizer, since answers are shown with v-html -->
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/dompurify@3/dist/purify.min.js"></script>
+    <?!= page.head || '' ?>
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, minimal-ui">
+    <style>
+      html,
+      body {
+        height: 100%;
+        overflow: hidden;
+      }
+
+      #app,
+      #inspire,
+      .v-application,
+      .v-application--wrap {
+        height: 100%;
+        min-height: 100%;
+        overflow: hidden;
+      }
+
+      .v-application--wrap {
+        display: flex;
+        flex-direction: column;
+      }
+
+      .teamone-sidebar-shell {
+        height: 100vh;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+      }
+
+      .teamone-top-card {
+        flex: 0 0 auto;
+      }
+
+      .teamone-tabs-items {
+        flex: 1 1 auto;
+        min-height: 0;
+        overflow: hidden;
+      }
+
+      .teamone-tabs-items,
+      .teamone-tabs-items > .v-window__container,
+      .teamone-tabs-items .v-window-item,
+      .teamone-tab-card {
+        height: 100%;
+      }
+
+      .teamone-tab-card {
+        position: relative;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+      }
+
+      .teamone-tab-content {
+        flex: 1 1 auto;
+        min-height: 0;
+        overflow-y: auto;
+      }
+
+      .teamone-secondary-toolbar {
+        flex: 0 0 56px !important;
+        height: 56px !important;
+        min-height: 56px !important;
+        max-height: 56px !important;
+      }
+
+      .teamone-secondary-toolbar .v-toolbar__content {
+        height: 56px !important;
+      }
+      .assistant-fab {
+        position: fixed !important;
+        right: 18px;
+        bottom: 18px;
+        z-index: 20;
+      }
+      .assistant-bottom-sheet {
+        margin: 1px !important;
+        max-width: none !important;
+        width: calc(100% - 2px) !important;
+        left: 1px !important;
+        right: 1px !important;
+        bottom: 1px !important;
+        overflow: hidden !important;
+      }
+      .assistant-message-row {
+        display: flex;
+        width: 100%;
+      }
+
+      .assistant-message-row-assistant {
+        justify-content: flex-start;
+      }
+
+      .assistant-message-row-user {
+        justify-content: flex-end;
+      }
+
+      .assistant-message-bubble {
+        max-width: 82%;
+      }
+
+      .assistant-message-bubble-user {
+        text-align: right;
+      }
+
+      .assistant-message-bubble-user .assistant-message {
+        display: inline-block;
+        text-align: left;
+        background: #f5f5f5;
+        border-radius: 12px 12px 2px 12px;
+        padding: 6px 10px;
+      }
+
+      .assistant-message-bubble-assistant .assistant-message {
+        display: inline-block;
+        background: transparent;
+      }
+      .v-tab {
+        min-width: 0;
+      }
+
+      .v-input {
+        max-width: 280px;
+        font-size: 14px;
+      }
+
+      .toolbarTitle {
+        width: 200px !important;
+        font-size: 13px;
+        padding-left: 2px !important;
+      }
+
+      .v-toolbar__content {
+        height: 56px !important;
+      }
+
+      .v-dialog:not(.v-dialog--fullscreen):not(.assistant-bottom-sheet) {
+        margin: 10px;
+      }
+
+      .v-snack__wrapper {
+        min-width: 294px;
+        word-break: break-word;
+      }
+
+      .v-application--is-ltr .v-list-item__icon:first-child {
+        margin-right: 8px;
+      }
+
+      .listItemTwoLineDense {
+        padding: 0 2px;
+        height: 52px !important;
+        min-height: 52px !important;
+      }
+
+      .tm1LogMsg {
+        font-size: 12px;
+        line-height: 18px;
+      }
+
+      .logTime {
+        padding: 4px;
+        font-size: 10px;
+        border-top: 1px solid #EEE;
+        color: #777;
+      }
+
+      .logMsg {
+        font-size: 13px;
+      }
+
+      .logMsgWarn {
+        color: #FF9800 !important;
+      }
+
+      .logMsgError {
+        color: #E91E63 !important;
+      }
+
+      .assistant-message {
+        white-space: pre-wrap;
+        font-size: 13px;
+        line-height: 18px;
+      }
+
+      .assistant-preview-table {
+        border-collapse: collapse;
+        width: 100%;
+        font-size: 12px;
+      }
+
+      .assistant-preview-table td {
+        border: 1px solid #ddd;
+        padding: 4px;
+        word-break: break-word;
+      }
+
+      [v-cloak] > * {
+        display: none;
+      }
+
+      [v-cloak]::before {
+        content: "Loading TeamOne...";
+        display: block;
+        padding: 12px;
+        font-family: Roboto, Arial, sans-serif;
+      }
+
+      ::-webkit-scrollbar {
+        height: 5px;
+        width: 5px;
+      }
+
+      ::-webkit-scrollbar-track {
+        background: #f1f1f1;
+      }
+
+      ::-webkit-scrollbar-thumb {
+        background: #bec4c4;
+      }
+    </style>
+  </head>
+  <body style="overflow:hidden">
+    <div id="app" v-cloak>
+      <v-app id="inspire">
+        <?!= include(page.file) ?>
+
+        <v-fab-transition>
+          <v-btn
+            v-show="!assistantDialog"
+            color="indigo"
+            small
+            dark
+            fixed
+            bottom
+            right
+            fab
+            class="assistant-fab"
+            @click="assistantDialog = true"
+          >
+            <v-icon>mdi-assistant</v-icon>
+          </v-btn>
+        </v-fab-transition>
+
+        <v-bottom-sheet
+          v-model="assistantDialog"
+          inset
+          content-class="assistant-bottom-sheet"
+        >
+          <v-card
+            style="
+              height: 90vh;
+              max-height: 90vh;
+              display: flex;
+              flex-direction: column;
+              border-radius: 4px 4px 0 0;
+            "
+          >
+            <v-subheader
+              style="
+                flex: 0 0 48px;
+                height: 48px;
+                min-height: 48px;
+                padding-left: 16px;
+                padding-right: 8px;
+              "
+            >
+              TeamOne AI Assistant
+              <v-spacer></v-spacer>
+              <!-- Analyze-active-sheet button disabled: the /formulas/analyze
+                   backend endpoint and analyzeActiveSheet() method have been
+                   removed/commented out in core.js.html. Analysis questions
+                   now go through the same /chat endpoint as everything else. -->
+              <!--
+              <v-tooltip bottom>
+                <template v-slot:activator="{ on, attrs }">
+                  <v-btn icon :loading="assistant.analyzing" @click="analyzeActiveSheet" v-bind="attrs" v-on="on">
+                    <v-icon small>mdi-file-search-outline</v-icon>
+                  </v-btn>
+                </template>
+                <span>Analyze active sheet for formula issues</span>
+              </v-tooltip>
+              -->
+              <v-tooltip bottom>
+                <template v-slot:activator="{ on, attrs }">
+                  <v-btn icon @click="assistant.messages=[assistant.messages[0]]" v-bind="attrs" v-on="on">
+                    <v-icon small>mdi-chat-plus-outline</v-icon>
+                  </v-btn>
+                </template>
+                <span>Start a new chat</span>
+              </v-tooltip>
+              <v-tooltip bottom>
+                <template v-slot:activator="{ on, attrs }">
+                  <v-btn icon @click="assistantDialog=false" v-bind="attrs" v-on="on">
+                    <v-icon small>mdi-close</v-icon>
+                  </v-btn>
+                </template>
+                <span>Close chat</span>
+              </v-tooltip>
+            </v-subheader>
+
+            <v-divider></v-divider>
+
+            <v-card-text
+              class="pa-3"
+              style="
+                flex: 1 1 auto;
+                min-height: 0;
+                overflow-y: auto;
+              "
+            >
+              <div
+                v-for="m in assistant.messages"
+                :key="m.id"
+                class="assistant-message-row mb-3"
+                :class="m.role === 'user' ? 'assistant-message-row-user' : 'assistant-message-row-assistant'"
+              >
+                <div
+                  class="assistant-message-bubble"
+                  :class="m.role === 'user' ? 'assistant-message-bubble-user' : 'assistant-message-bubble-assistant'"
+                >
+                  <div class="assistant-message" v-html="m.html || m.text"></div>
+
+                  <div v-if="m.sources && m.sources.length" class="mt-1">
+                    <v-chip
+                      v-for="(s, sIndex) in m.sources"
+                      :key="sIndex"
+                      x-small
+                      outlined
+                      :color="s.low_confidence ? 'orange' : 'indigo'"
+                      class="mr-1 mb-1"
+                    >
+                      {{ s.source }}<span v-if="s.low_confidence"> (low confidence)</span>
+                    </v-chip>
+                  </div>
+                </div>
+              </div>
+
+              <div v-if="assistant.loading" class="assistant-message-row assistant-message-row-assistant mb-3">
+                <div class="assistant-message-bubble assistant-message-bubble-assistant">
+                  <div class="assistant-message font-italic">TeamOne AI is thinking...</div>
+                </div>
+              </div>
+
+              <v-card v-if="assistant.preview" outlined class="mt-3">
+                <v-subheader>Preview before inserting</v-subheader>
+
+                <div class="pa-3" style="font-size:12px; line-height:20px">
+                  <div><b>Cube:</b></div>
+                  <div class="mb-2">{{ assistant.preview.cube }}</div>
+
+                  <template v-if="assistant.preview.titles && assistant.preview.titles.length">
+                    <div><b>Context / titles:</b></div>
+                    <div class="mb-2">
+                      <div v-for="(t, i) in assistant.preview.titles" :key="'t'+i">{{ t }}</div>
+                    </div>
+                  </template>
+
+                  <div><b>Rows:</b></div>
+                  <div class="mb-2">
+                    <div v-for="(r, i) in assistant.preview.rows" :key="'r'+i">{{ r.join(' > ') }}</div>
+                  </div>
+
+                  <div><b>Columns:</b></div>
+                  <div class="mb-2">
+                    <div v-for="(c, i) in assistant.preview.columnLabels" :key="'c'+i">{{ c }}</div>
+                  </div>
+
+                  <template v-if="assistant.preview.options">
+                    <div><b>Options:</b></div>
+                    <div>{{ assistant.preview.options }}</div>
+                  </template>
+                </div>
+
+                <v-card-actions>
+                  <v-spacer></v-spacer>
+                  <v-btn text @click="assistant.preview=null">Cancel</v-btn>
+                  <v-btn color="indigo" dark @click="insertAssistantPreview">
+                    Insert into active sheet
+                  </v-btn>
+                </v-card-actions>
+              </v-card>
+            </v-card-text>
+
+            <v-divider></v-divider>
+
+            <v-card-actions
+              style="
+                flex: 0 0 auto;
+                padding: 8px 8px 10px 12px;
+              "
+            >
+              <v-text-field
+                dense
+                hide-details
+                v-model="assistant.input"
+                placeholder="Ask about TeamOne formulas..."
+                @keydown.enter="assistantSend"
+                :disabled="assistant.loading"
+                :autofocus="true"
+              ></v-text-field>
+
+              <v-btn icon color="indigo" :disabled="assistant.loading" @click="assistantSend">
+                <v-icon>mdi-send</v-icon>
+              </v-btn>
+            </v-card-actions>
+          </v-card>
+        </v-bottom-sheet>
+
+
+
+        <v-dialog v-model="loader" persistent width="292">
+          <v-card>
+            <div class="py-6 text-center">
+              <v-progress-circular indeterminate color="indigo" size="64"></v-progress-circular>
+            </div>
+            <v-card-text v-html="executing" class="font-italic"></v-card-text>
+          </v-card>
+        </v-dialog>
+
+        <v-snackbar v-model="snackbarDialog" vertical :timeout="snackbar.timeout" :color="snackbar.color">
+          <template v-slot:action="{ attrs }">
+            <v-btn plain text v-bind="attrs" @click="snackbarDialog = false">CLOSE</v-btn>
+          </template>
+          <span v-html="snackbar.msg"></span>
+        </v-snackbar>
+
+      </v-app>
+    </div>
+  </body>
+  <script defer src="https://cdn.jsdelivr.net/npm/vue@2.x/dist/vue.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/vuetify@2.x/dist/vuetify.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/lodash@4.17.21/lodash.min.js"></script>
+  <?!= page.js || '' ?>
+  <?!= include(page.file + '.js') ?>
+  <?!= include('core.js') ?>
+</html>

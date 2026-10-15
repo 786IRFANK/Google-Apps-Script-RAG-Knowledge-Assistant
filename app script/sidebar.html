@@ -1,0 +1,189 @@
+<div class="teamone-sidebar-shell">
+  <v-card tile class="teamone-top-card">
+    <v-app-bar flat :color="colorMain" dark style="height:104px !important">
+      <v-select
+        v-model="state.tm1Env"
+        :items="tm1Envs"
+        dense
+        hide-details
+        @input="tm1ConnSource();stateSave()"
+        style="margin-top:12px;width:170px"
+      ></v-select>
+
+      <v-spacer></v-spacer>
+
+      <v-tooltip bottom>
+        <template v-slot:activator="{ on, attrs }">
+          <v-btn icon @click="tabContentRefresh" v-bind="attrs" v-on="on">
+            <v-icon>mdi-refresh</v-icon>
+          </v-btn>
+        </template>
+        <span>Refresh configuration</span>
+      </v-tooltip>
+
+      <v-menu bottom left>
+        <template v-slot:activator="{ on, attrs }">
+          <v-btn icon v-bind="attrs" v-on="on">
+            <v-icon>mdi-menu</v-icon>
+          </v-btn>
+        </template>
+
+        <v-list dense>
+          <v-subheader>
+            {{ state.tm1Env }}
+            <v-spacer></v-spacer>
+            <v-icon small>mdi-close</v-icon>
+          </v-subheader>
+
+          <v-list-item @click="gsExecute('Model Search')">
+            <v-list-item-icon><v-icon>mdi-magnify</v-icon></v-list-item-icon>
+            <v-list-item-title>Search TM1 model</v-list-item-title>
+          </v-list-item>
+
+          <v-list-item @click="gsExecute('Configuration')">
+            <v-list-item-icon><v-icon>mdi-tune</v-icon></v-list-item-icon>
+            <v-list-item-title>Configuration</v-list-item-title>
+          </v-list-item>
+
+          <v-list-item @click="gsExecute('Getting started')">
+            <v-list-item-icon><v-icon>mdi-school-outline</v-icon></v-list-item-icon>
+            <v-list-item-title>Getting started</v-list-item-title>
+          </v-list-item>
+
+          <v-divider></v-divider>
+
+          <v-list-item href="https://succeedium.com/teamone/doc/" target="_blank">
+            <v-list-item-icon><v-icon>mdi-book-open-page-variant-outline</v-icon></v-list-item-icon>
+            <v-list-item-title>Documentation</v-list-item-title>
+          </v-list-item>
+        </v-list>
+      </v-menu>
+
+      <template v-slot:extension>
+        <v-tabs ref="tabs" v-model="tab" fixed-tabs @change="tabContentRefresh">
+          <template v-for="item in tabs">
+            <v-tooltip bottom :key="item.key">
+              <template v-slot:activator="{ on, attrs }">
+                <v-tab
+                  v-bind="attrs"
+                  v-on="on"
+                  :href="'#' + item.key"
+                  v-show="item.adminOnly !== true || isAdminUser"
+                >
+                  <v-icon small>{{ item.icon }}</v-icon>
+                </v-tab>
+              </template>
+              <span>{{ item.text }}</span>
+            </v-tooltip>
+          </template>
+        </v-tabs>
+      </template>
+    </v-app-bar>
+  </v-card>
+
+  <v-tabs-items v-model="tab" class="teamone-tabs-items">
+    <v-tab-item key="functions" id="functions">
+      <v-card flat class="pa-0 teamone-tab-card">
+        <v-toolbar
+          flat
+          :color="colorTabToolbar"
+          height="56"
+          class="px-1 teamone-secondary-toolbar"
+        >
+          <v-btn
+            small
+            text
+            class="ml-n4"
+            :disabled="connecting"
+            @click="gsExecute('Recalculate')"
+          >
+            <v-icon>mdi-file-restore-outline</v-icon>
+            Recalculate
+          </v-btn>
+
+          <v-divider vertical inset class="mx-1"></v-divider>
+
+          <v-btn
+            small
+            text
+            class="px-2"
+            :disabled="connecting"
+            @click="gsExecute('Expand / collapse')"
+          >
+            <v-icon>mdi-plus-minus-variant</v-icon>
+          </v-btn>
+
+          <v-btn
+            small
+            text
+            class="px-2"
+            :disabled="connecting"
+            @click="gsExecute('Upload data')"
+          >
+            <v-icon>mdi-file-upload-outline</v-icon>
+          </v-btn>
+
+          <v-spacer></v-spacer>
+        </v-toolbar>
+
+        <div class="teamone-tab-content">
+          <v-skeleton-loader v-if="tabLoading" type="list-item-three-line, list-item-three-line"></v-skeleton-loader>
+          <v-list v-else dense class="pa-0">
+            <v-subheader>Content</v-subheader>
+
+            <v-list-item
+              v-for="s in sheetList"
+              :key="s.id"
+              @click="gsSheetActivate({ id: s.id, sheet: s.sheet })"
+            >
+              <v-list-item-icon>
+                <v-icon color="grey">mdi-google-spreadsheet</v-icon>
+              </v-list-item-icon>
+              <v-list-item-title>{{ s.sheet }}</v-list-item-title>
+            </v-list-item>
+
+            <div v-if="!sheetList.length" class="mt-10 mx-4 text-caption grey--text">
+              <v-icon large color="grey">mdi-file-alert-outline</v-icon><br>
+              No TeamOne content found. This prototype keeps the UI shell only; functional TeamOne logic was removed.
+            </div>
+          </v-list>
+        </div>
+      </v-card>
+    </v-tab-item>
+
+    <v-tab-item key="tasks" id="tasks">
+      <v-card flat class="pa-4 text-caption grey--text teamone-tab-card">
+        <v-icon>mdi-clipboard-list-outline</v-icon>
+        Tasks UI placeholder
+      </v-card>
+    </v-tab-item>
+
+    <v-tab-item key="model" id="model">
+      <v-card flat class="pa-4 text-caption grey--text teamone-tab-card">
+        <v-icon>mdi-cube-outline</v-icon>
+        Model UI placeholder
+      </v-card>
+    </v-tab-item>
+
+    <v-tab-item key="users" id="users">
+      <v-card flat class="pa-4 text-caption grey--text teamone-tab-card">
+        <v-icon>mdi-account-group-outline</v-icon>
+        Users UI placeholder
+      </v-card>
+    </v-tab-item>
+
+    <v-tab-item key="log" id="log">
+      <v-card flat class="pa-4 text-caption grey--text teamone-tab-card">
+        <v-icon>mdi-calendar-text-outline</v-icon>
+        Message log UI placeholder
+      </v-card>
+    </v-tab-item>
+
+    <v-tab-item key="processes" id="processes">
+      <v-card flat class="pa-4 text-caption grey--text teamone-tab-card">
+        <v-icon>mdi-calculator-variant-outline</v-icon>
+        Processes UI placeholder
+      </v-card>
+    </v-tab-item>
+  </v-tabs-items>
+</div>
